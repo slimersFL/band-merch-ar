@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="Point your camera at a poster, flyer, or menu to unlock content.">
+  <title>AR</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <!-- A-Frame + MindAR (image tracking). Loaded from CDN; these are stable released versions. -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+</head>
+<body>
+
+  <!-- ============================================================
+       VIEW: Landing
+       ============================================================ -->
+  <section id="view-landing" class="view view--active">
+    <header class="landing__header">
+      <h1 class="landing__title" data-site-title>AR</h1>
+    </header>
+
+    <main class="landing__main">
+      <p class="landing__lede">
+        Point your camera at a poster, flyer, or menu.
+        If we recognize it, something happens.
+      </p>
+
+      <ol class="landing__steps" data-how-it-works>
+        <li><span>01</span>Tap start &amp; allow your camera</li>
+        <li><span>02</span>Aim at a known image</li>
+        <li><span>03</span>Hold steady for a second</li>
+      </ol>
+
+      <button id="start-btn" class="btn btn--primary" type="button">Start scanning</button>
+
+      <p class="landing__privacy">
+        Your camera feed stays on your device. We don't track, store, or transmit anything.
+      </p>
+    </main>
+
+    <footer class="landing__footer">
+      <span data-site-title>AR</span>
+    </footer>
+  </section>
+
+  <!-- ============================================================
+       VIEW: Unsupported browser
+       ============================================================ -->
+  <section id="view-unsupported" class="view">
+    <div class="message">
+      <h2 class="message__title">Not supported here</h2>
+      <p class="message__body" id="unsupported-reason">
+        Your browser doesn't support AR. Please open in Chrome or Safari.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       VIEW: Permission denied
+       ============================================================ -->
+  <section id="view-permission-denied" class="view">
+    <div class="message">
+      <h2 class="message__title">Camera access needed</h2>
+      <p class="message__body">
+        Camera access is required to detect images. Your camera feed is never stored or transmitted.
+      </p>
+      <button id="retry-permission-btn" class="btn btn--primary" type="button">Try again</button>
+      <button class="btn btn--ghost" type="button" data-go-home>Back</button>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       VIEW: Scanner
+       The a-scene is built dynamically by app.js after config loads.
+       ============================================================ -->
+  <section id="view-scanner" class="view view--scanner">
+    <div id="scanner-mount" class="scanner__mount"></div>
+    <button class="scanner__close" type="button" data-go-home aria-label="Close scanner">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+        <path d="M5 5 L19 19 M19 5 L5 19" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div id="scanner-hint" class="scanner__hint" aria-hidden="true"></div>
+  </section>
+
+  <!-- ============================================================
+       VIEW: Content overlay (video / audio / link)
+       ============================================================ -->
+  <section id="view-content" class="view view--content" aria-modal="true" role="dialog">
+    <div class="content__backdrop" data-close-content></div>
+    <div class="content__shell">
+      <button class="content__close" type="button" data-close-content aria-label="Close content">
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+          <path d="M5 5 L19 19 M19 5 L5 19" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div id="content-meta" class="content__meta"></div>
+      <div id="content-body" class="content__body"></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       VIEW: Desktop fallback (upload to test)
+       ============================================================ -->
+  <section id="view-desktop" class="view">
+    <div class="desktop">
+      <h1 class="desktop__title" data-site-title>AR</h1>
+      <p class="desktop__lede">
+        AR works best on mobile. Open this site on your phone, or test below by
+        uploading a photo of one of your reference images.
+      </p>
+      <ol class="landing__steps" data-how-it-works></ol>
+
+      <div class="desktop__upload">
+        <label class="btn btn--primary" for="desktop-file-input">Upload an image to test</label>
+        <input id="desktop-file-input" type="file" accept="image/*" hidden>
+        <p id="desktop-status" class="desktop__status" aria-live="polite"></p>
+      </div>
+
+      <div id="desktop-targets" class="desktop__targets"></div>
+    </div>
+  </section>
+
+  <script src="assets/app.js"></script>
+  <script src="assets/fallback-desktop.js"></script>
+</body>
+</html>
