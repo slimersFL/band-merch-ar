@@ -5,20 +5,18 @@
  * (via Puppeteer) and writes the resulting targets.mind buffer to
  * the repo root.
  *
- * IMPORTANT NOTES ON VERSIONING:
+ * NOTES:
  *
- * - We use the /gh/ path on jsDelivr (not /npm/). The GitHub-hosted
- *   bundle is a plain UMD script that registers window.MINDAR. The
- *   npm-hosted bundle with the same filename is an ES module, which
- *   can't be loaded with a plain <script> tag.
+ * - We load the UMD bundle from the /gh/ path on jsDelivr (not /npm/).
+ *   The /npm/ bundle is ESM and can't be loaded via a plain script tag.
  *
- * - We pin to @1.1.4 because later tags (1.2.x) don't commit the
- *   `dist/` folder to the GitHub repo, so their /gh/ URLs 404.
- *   1.1.4 produces .mind files that are fully forward-compatible
- *   with the 1.2.5 runtime we load in the frontend.
+ * - MindAR uses TensorFlow.js, which requires WebGL. GitHub Actions
+ *   runners have no GPU, so we must tell Chromium to use its software
+ *   WebGL implementation (SwiftShader). Without these flags, TF.js
+ *   crashes with "WebGL is not supported on this device".
  *
  * - The compiler class lives at window.MINDAR.Compiler in 1.1.4
- *   and window.MINDAR.IMAGE.Compiler in 1.2.x, so we probe both.
+ *   and window.MINDAR.IMAGE.Compiler in newer builds. We probe both.
  *
  * Inputs:  config.json targets[].imageFile  ->  targets/<n>
  * Output:  ./targets.mind
@@ -49,7 +47,6 @@ const MINDAR_CDN = 'https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/dist/min
     process.exit(0);
   }
 
-  // Validate all files exist and collect them as data URLs
   const images = [];
   for (const t of targets) {
     if (!t.imageFile) {
@@ -68,39 +65,62 @@ const MINDAR_CDN = 'https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/dist/min
     });
   }
 
-  // ---- Launch headless Chromium -------------------------------------------
+  // ---- Launch headless Chromium with software WebGL enabled ---------------
   const browser = await puppeteer.launch({
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-    headless: 'new',
+    // Use legacy headless mode — "new" headless sometimes has stricter GPU
+    // policies that override our flags.
+    headless: true,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
-      '--disable-gpu'
-    ]
+      // Enable software WebGL via SwiftShader (Chromium's built-in CPU rasterizer).
+      '--enable-webgl',
+      '--use-gl=angle',
+      '--use-angle=swiftshader',
+      '--enable-unsafe-swiftshader',
+      // TF.js sometimes needs these too
+      '--ignore-gpu-blocklist',
+      '--enable-features=Vulkan'
+    ],
+    // Keep the process alive long enough for the compiler (large images can
+    // take 60-120s on a slow GH runner)
+    timeout: 180000
   });
 
   try {
     const page = await browser.newPage();
+    page.setDefaultTimeout(180000);
     page.on('console', msg => {
       try { console.log('[browser]', msg.text()); } catch (_) {}
     });
     page.on('pageerror', err => console.error('[browser error]', err.message));
 
-    console.log('Fetching MindAR bundle from', MINDAR_CDN);
-    const mindarJs = await fetchText(MINDAR_CDN);
-    console.log(`Fetched MindAR bundle (${mindarJs.length} bytes).`);
-
-    // Minimal HTML host
+    // Sanity check WebGL availability before loading the heavy MindAR bundle.
     await page.setContent(
       '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>',
       { waitUntil: 'load' }
     );
+    const webglStatus = await page.evaluate(() => {
+      const c = document.createElement('canvas');
+      const gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
+      if (!gl) return { ok: false, reason: 'getContext returned null' };
+      const info = gl.getExtension('WEBGL_debug_renderer_info');
+      const renderer = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+      return { ok: true, renderer: String(renderer) };
+    });
+    if (!webglStatus.ok) {
+      throw new Error('WebGL unavailable in headless Chromium: ' + webglStatus.reason);
+    }
+    console.log('WebGL OK. Renderer:', webglStatus.renderer);
 
-    // Inject the bundle source directly.
+    console.log('Fetching MindAR bundle from', MINDAR_CDN);
+    const mindarJs = await fetchText(MINDAR_CDN);
+    console.log(`Fetched MindAR bundle (${mindarJs.length} bytes).`);
+
     await page.addScriptTag({ content: mindarJs });
 
-    // Probe both API shapes.
     const apiShape = await page.evaluate(() => {
       if (!window.MINDAR) return { shape: 'none' };
       if (window.MINDAR.IMAGE && typeof window.MINDAR.IMAGE.Compiler === 'function') {
@@ -116,13 +136,12 @@ const MINDAR_CDN = 'https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/dist/min
       throw new Error('window.MINDAR is undefined after injecting the bundle.');
     }
     if (apiShape.shape === 'unknown') {
-      throw new Error(
-        'Compiler not found. window.MINDAR keys: ' + apiShape.keys.join(', ')
-      );
+      throw new Error('Compiler not found. window.MINDAR keys: ' + apiShape.keys.join(', '));
     }
     console.log(`MindAR compiler loaded (API shape: ${apiShape.shape}).`);
 
-    // Run the compiler in the page context.
+    // Run the compiler. We wrap the whole block in page.evaluate and return
+    // the exported buffer as base64.
     const base64 = await page.evaluate(async (images, shape) => {
       const loadImage = (dataUrl) => new Promise((resolve, reject) => {
         const img = new Image();
