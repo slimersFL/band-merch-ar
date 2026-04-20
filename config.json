@@ -46,10 +46,10 @@
       "title": "Upcoming Show",
       "content": {
         "type": "link",
-        "url": "https://slimersmusic.bandcamp.com/album/slimers",
-        "buttonText": "Listen on Bandcamp",
+        "url": "https://google.com",
+        "buttonText": "Google",
         "thumbnail": "bartW.jpg",
-        "displayMode": "spatial"
+        "displayMode": "fullscreen"
       }
     }
   ]
