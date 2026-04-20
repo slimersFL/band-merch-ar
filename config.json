@@ -1,11 +1,11 @@
 {
   "site": {
     "title": "MagicMerch AR",
-    "accentColor": "#ffffff",
+    "accentColor": "#48F700",
     "howItWorks": [
-      "Point your camera at a poster",
+      "Point your camera at a sticker / Album cover/ Shirt",
       "Hold steady for a moment",
-      "Watch the poster come to life"
+      "Watch it come to life!"
     ]
   },
   "targets": [
