@@ -4,41 +4,52 @@
     "accentColor": "#ffffff",
     "howItWorks": [
       "Point your camera at a poster",
-      "Wait a moment for it to be recognized",
-      "Enjoy the content"
+      "Hold steady for a moment",
+      "Watch the poster come to life"
     ]
   },
   "targets": [
     {
-      "id": "SlimersStiker",
-      "imageFile": "Slumer1.png",
+      "id": "poster-2024",
+      "imageFile": "poster-2024.jpg",
       "title": "Summer Tour 2024",
-      "artist": "The Band",
-      "description": "test",
       "content": {
         "type": "video",
-        "url": "https://www.youtube.com/watch?v=XMxK5Gq_XNM"
+        "url": "videos/tour-trailer.mp4",
+        "displayMode": "spatial",
+        "spatialHeight": 0.5625
       }
     },
     {
-      "id": "album-front-cover",
-      "imageFile": "coverF.png",
+      "id": "album-cover",
+      "imageFile": "album-cover.png",
+      "title": "New Album",
+      "content": {
+        "type": "video",
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "displayMode": "fullscreen"
+      }
+    },
+    {
+      "id": "new-single",
+      "imageFile": "single-sleeve.jpg",
       "title": "New Single",
       "content": {
         "type": "audio",
-        "url": "https://slimersmusic.bandcamp.com/album/slimers"
+        "url": "audio/single.mp3",
+        "displayMode": "spatial"
       }
     },
     {
-      "id": "falbum-back-cover",
-      "imageFile": "coverB.png",
-      "title": "Banana",
-      "description": "Friday 8pm. All ages.",
+      "id": "flyer-show",
+      "imageFile": "flyer-show.jpg",
+      "title": "Upcoming Show",
       "content": {
         "type": "link",
-        "url": "https://www.youtube.com/watch?v=2an1n5xnT4Y",
+        "url": "https://bandcamp.com/tour",
         "buttonText": "See tour dates",
-        "thumbnail": "coverB.png"
+        "thumbnail": "flyer-show-thumb.jpg",
+        "displayMode": "spatial"
       }
     }
   ]
