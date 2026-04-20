@@ -15,7 +15,7 @@
       "title": "Summer Tour 2024",
       "content": {
         "type": "video",
-        "url": "videos/AR_VIDEO_TEST.mp4",
+        "url": "videos/ar-video-test.mp4",
         "displayMode": "spatial",
         "spatialHeight": 0.5625
       }
