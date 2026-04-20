@@ -1,7 +1,5 @@
 name: Compile MindAR targets
 
-# Spec §5.2 & §6.4 — auto-generate targets.mind whenever reference
-# images or config.json change on main.
 on:
   push:
     branches: [main]
@@ -9,6 +7,7 @@ on:
       - 'targets/**'
       - 'config.json'
       - '.github/workflows/compile-targets.yml'
+      - '.github/workflows/compile-targets.js'
   workflow_dispatch: {}
 
 permissions:
@@ -29,17 +28,20 @@ jobs:
       - name: Install compiler dependencies
         run: |
           npm init -y
-          npm install mind-ar@1.2.5 puppeteer@22.15.0 --no-save
+          # Install puppeteer (not puppeteer-core) so it downloads its own
+          # known-good Chromium build. The system chromium from apt is often
+          # too stripped down for software WebGL (SwiftShader) to work.
+          npm install puppeteer@22.15.0 --no-save
 
-      - name: Install Chromium (system)
+      - name: Install system libraries needed by Chromium
         run: |
           sudo apt-get update
-          sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium
+          sudo apt-get install -y \
+            libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+            libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+            libgbm1 libasound2t64 libpango-1.0-0 libcairo2
 
       - name: Compile targets.mind
-        env:
-          PUPPETEER_SKIP_DOWNLOAD: 'true'
-          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
         run: node .github/workflows/compile-targets.js
 
       - name: Commit targets.mind
