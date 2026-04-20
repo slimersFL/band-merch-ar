@@ -1,0 +1,57 @@
+name: Compile MindAR targets
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'targets/**'
+      - 'config.json'
+      - '.github/workflows/compile-targets.yml'
+      - '.github/workflows/compile-targets.js'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install compiler dependencies
+        run: |
+          npm init -y
+          # Install puppeteer (not puppeteer-core) so it downloads its own
+          # known-good Chromium build. The system chromium from apt is often
+          # too stripped down for software WebGL (SwiftShader) to work.
+          npm install puppeteer@22.15.0 --no-save
+
+      - name: Install system libraries needed by Chromium
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+            libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+            libgbm1 libasound2t64 libpango-1.0-0 libcairo2
+
+      - name: Compile targets.mind
+        run: node .github/workflows/compile-targets.js
+
+      - name: Commit targets.mind
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain targets.mind)" ]; then
+            git add targets.mind
+            git commit -m "chore: compile targets.mind [skip ci]"
+            git push
+          else
+            echo "targets.mind unchanged; nothing to commit."
+          fi
