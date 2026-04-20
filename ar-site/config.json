@@ -1,0 +1,45 @@
+{
+  "site": {
+    "title": "My Band AR",
+    "accentColor": "#ffffff",
+    "howItWorks": [
+      "Point your camera at a poster",
+      "Wait a moment for it to be recognized",
+      "Enjoy the content"
+    ]
+  },
+  "targets": [
+    {
+      "id": "poster-2024",
+      "imageFile": "poster-2024.jpg",
+      "title": "Summer Tour 2024",
+      "artist": "The Band",
+      "description": "Official tour video.",
+      "content": {
+        "type": "video",
+        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      }
+    },
+    {
+      "id": "menu-cover",
+      "imageFile": "menu-cover.png",
+      "title": "New Single",
+      "content": {
+        "type": "audio",
+        "url": "https://soundcloud.com/artist/track"
+      }
+    },
+    {
+      "id": "flyer-show",
+      "imageFile": "flyer-show.jpg",
+      "title": "Upcoming Show",
+      "description": "Friday 8pm. All ages.",
+      "content": {
+        "type": "link",
+        "url": "https://bandcamp.com/tour",
+        "buttonText": "See tour dates",
+        "thumbnail": "flyer-show-thumb.jpg"
+      }
+    }
+  ]
+}
