@@ -42,7 +42,7 @@
     },
     {
       "id": "flyer-show",
-      "imageFile": "flyer-show.jpg",
+      "imageFile": "coverF.png",
       "title": "Upcoming Show",
       "content": {
         "type": "link",
