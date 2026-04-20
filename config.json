@@ -46,9 +46,19 @@
       "title": "Upcoming Show",
       "content": {
         "type": "link",
-        "url": "https://google.com",
-        "buttonText": "Google",
+        "url": "https://slimersmusic.bandcamp.com/album/slimers",
+        "buttonText": "Listen on Bandcamp!",
         "thumbnail": "bartW.jpg",
+        "displayMode": "fullscreen"
+      }
+    },
+    {
+      "id": "album-cover",
+      "imageFile": "coverB.png",
+      "title": "SlimerComp",
+      "content": {
+        "type": "video",
+        "url": "https://www.youtube.com/watch?v=gzLcqLoKI0w",
         "displayMode": "fullscreen"
       }
     }
