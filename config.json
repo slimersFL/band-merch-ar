@@ -42,13 +42,13 @@
     },
     {
       "id": "flyer-show",
-      "imageFile": "coverF.png",
+      "imageFile": "bartW.jpg",
       "title": "Upcoming Show",
       "content": {
         "type": "link",
-        "url": "https://bandcamp.com/tour",
-        "buttonText": "See tour dates",
-        "thumbnail": "flyer-show-thumb.jpg",
+        "url": "https://slimersmusic.bandcamp.com/album/slimers",
+        "buttonText": "Listen on Bandcamp",
+        "thumbnail": "bartW.jpg",
         "displayMode": "spatial"
       }
     }
