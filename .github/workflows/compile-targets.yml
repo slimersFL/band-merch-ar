@@ -1,0 +1,55 @@
+name: Compile MindAR targets
+
+# Spec §5.2 & §6.4 — auto-generate targets.mind whenever reference
+# images or config.json change on main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'targets/**'
+      - 'config.json'
+      - '.github/workflows/compile-targets.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install compiler dependencies
+        run: |
+          npm init -y
+          npm install mind-ar@1.2.5 puppeteer@22.15.0 --no-save
+
+      - name: Install Chromium (system)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium
+
+      - name: Compile targets.mind
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
+        run: node .github/workflows/compile-targets.js
+
+      - name: Commit targets.mind
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain targets.mind)" ]; then
+            git add targets.mind
+            git commit -m "chore: compile targets.mind [skip ci]"
+            git push
+          else
+            echo "targets.mind unchanged; nothing to commit."
+          fi
