@@ -10,14 +10,14 @@
   },
   "targets": [
     {
-      "id": "poster-2024",
-      "imageFile": "poster-2024.jpg",
+      "id": "SlimersStiker",
+      "imageFile": "slumer1.jpg",
       "title": "Summer Tour 2024",
       "artist": "The Band",
-      "description": "Official tour video.",
+      "description": "test",
       "content": {
         "type": "video",
-        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        "url": "https://www.youtube.com/watch?v=XMxK5Gq_XNM"
       }
     },
     {
