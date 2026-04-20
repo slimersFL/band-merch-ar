@@ -8,7 +8,7 @@ No backend. No build server. $0 hosting. Deployed on GitHub Pages.
 
 ---
 
-## 5-minute quickstart
+## 5-minute quick-start
 
 1. Click **Use this template** on the GitHub repo page (or fork it).
 2. In your new repo, open **Settings → Pages** and set the source to
