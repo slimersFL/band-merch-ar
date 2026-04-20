@@ -11,18 +11,18 @@
   "targets": [
     {
       "id": "poster-2024",
-      "imageFile": "poster-2024.jpg",
+      "imageFile": "Slumer1.png",
       "title": "Summer Tour 2024",
       "content": {
         "type": "video",
-        "url": "videos/tour-trailer.mp4",
+        "url": "videos/AR_VIDEO_TEST.mp4",
         "displayMode": "spatial",
         "spatialHeight": 0.5625
       }
     },
     {
       "id": "album-cover",
-      "imageFile": "album-cover.png",
+      "imageFile": "coverB.png",
       "title": "New Album",
       "content": {
         "type": "video",
@@ -32,11 +32,11 @@
     },
     {
       "id": "new-single",
-      "imageFile": "single-sleeve.jpg",
+      "imageFile": "coverF.png",
       "title": "New Single",
       "content": {
         "type": "audio",
-        "url": "audio/single.mp3",
+        "url": "https://slimersmusic.bandcamp.com/album/slimers",
         "displayMode": "spatial"
       }
     },
