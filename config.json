@@ -1,6 +1,6 @@
 {
   "site": {
-    "title": "My Band AR",
+    "title": "MagicMerch AR",
     "accentColor": "#ffffff",
     "howItWorks": [
       "Point your camera at a poster",
@@ -12,7 +12,7 @@
     {
       "id": "poster-2024",
       "imageFile": "Slumer1.png",
-      "title": "Summer Tour 2024",
+      "title": "AR Magic Merch test 2024",
       "content": {
         "type": "video",
         "url": "videos/ar-video-test.mp4",
