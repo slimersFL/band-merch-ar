@@ -21,24 +21,24 @@
       }
     },
     {
-      "id": "menu-cover",
-      "imageFile": "menu-cover.png",
+      "id": "album-front-cover",
+      "imageFile": "coverF.png",
       "title": "New Single",
       "content": {
         "type": "audio",
-        "url": "https://soundcloud.com/artist/track"
+        "url": "https://slimersmusic.bandcamp.com/album/slimers"
       }
     },
     {
-      "id": "flyer-show",
-      "imageFile": "flyer-show.jpg",
-      "title": "Upcoming Show",
+      "id": "falbum-back-cover",
+      "imageFile": "coverB.png",
+      "title": "Banana",
       "description": "Friday 8pm. All ages.",
       "content": {
         "type": "link",
-        "url": "https://bandcamp.com/tour",
+        "url": "https://www.youtube.com/watch?v=2an1n5xnT4Y",
         "buttonText": "See tour dates",
-        "thumbnail": "flyer-show-thumb.jpg"
+        "thumbnail": "coverB.png"
       }
     }
   ]
