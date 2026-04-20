@@ -194,7 +194,6 @@
         const v = document.createElement('video');
         v.id = `asset-video-${i}`;
         v.setAttribute('src', c.url);
-        v.setAttribute('loop', '');
         v.setAttribute('muted', '');                // iOS requires muted for autoplay
         v.setAttribute('playsinline', '');
         v.setAttribute('webkit-playsinline', '');
