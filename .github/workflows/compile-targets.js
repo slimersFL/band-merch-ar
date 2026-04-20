@@ -5,11 +5,20 @@
  * (via Puppeteer) and writes the resulting targets.mind buffer to
  * the repo root.
  *
- * IMPORTANT: We load MindAR from the `gh` path on jsDelivr
- * (hiukim/mind-ar-js@1.2.5), NOT the `npm` path. The GitHub-hosted
- * bundle is a plain UMD script that registers window.MINDAR globally.
- * The npm-hosted bundle with the same filename is an ES module and
- * can't be loaded with a plain <script> tag.
+ * IMPORTANT NOTES ON VERSIONING:
+ *
+ * - We use the /gh/ path on jsDelivr (not /npm/). The GitHub-hosted
+ *   bundle is a plain UMD script that registers window.MINDAR. The
+ *   npm-hosted bundle with the same filename is an ES module, which
+ *   can't be loaded with a plain <script> tag.
+ *
+ * - We pin to @1.1.4 because later tags (1.2.x) don't commit the
+ *   `dist/` folder to the GitHub repo, so their /gh/ URLs 404.
+ *   1.1.4 produces .mind files that are fully forward-compatible
+ *   with the 1.2.5 runtime we load in the frontend.
+ *
+ * - The compiler class lives at window.MINDAR.Compiler in 1.1.4
+ *   and window.MINDAR.IMAGE.Compiler in 1.2.x, so we probe both.
  *
  * Inputs:  config.json targets[].imageFile  ->  targets/<n>
  * Output:  ./targets.mind
@@ -23,10 +32,11 @@ const ROOT       = process.cwd();
 const CONFIG     = path.join(ROOT, 'config.json');
 const TARGETS    = path.join(ROOT, 'targets');
 const OUT_FILE   = path.join(ROOT, 'targets.mind');
-const MINDAR_CDN = 'https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/mindar-image.prod.js';
+
+// Known-good UMD bundle served from the GitHub repo on jsDelivr.
+const MINDAR_CDN = 'https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.1.4/dist/mindar-image.prod.js';
 
 (async () => {
-  // ---- Read config ---------------------------------------------------------
   if (!fs.existsSync(CONFIG)) {
     console.error('config.json not found'); process.exit(1);
   }
@@ -77,9 +87,6 @@ const MINDAR_CDN = 'https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/min
     });
     page.on('pageerror', err => console.error('[browser error]', err.message));
 
-    // Fetch the MindAR bundle in Node, then inject its source into the page.
-    // This avoids document.write / parser-blocking warnings and guarantees
-    // the script is fully loaded and executed before we query window.MINDAR.
     console.log('Fetching MindAR bundle from', MINDAR_CDN);
     const mindarJs = await fetchText(MINDAR_CDN);
     console.log(`Fetched MindAR bundle (${mindarJs.length} bytes).`);
@@ -93,21 +100,30 @@ const MINDAR_CDN = 'https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/min
     // Inject the bundle source directly.
     await page.addScriptTag({ content: mindarJs });
 
-    // Confirm the compiler is available on window
-    const hasCompiler = await page.evaluate(() => {
-      return !!(window.MINDAR && window.MINDAR.IMAGE && typeof window.MINDAR.IMAGE.Compiler === 'function');
+    // Probe both API shapes.
+    const apiShape = await page.evaluate(() => {
+      if (!window.MINDAR) return { shape: 'none' };
+      if (window.MINDAR.IMAGE && typeof window.MINDAR.IMAGE.Compiler === 'function') {
+        return { shape: 'v2', keys: Object.keys(window.MINDAR) };
+      }
+      if (typeof window.MINDAR.Compiler === 'function') {
+        return { shape: 'v1', keys: Object.keys(window.MINDAR) };
+      }
+      return { shape: 'unknown', keys: Object.keys(window.MINDAR) };
     });
-    if (!hasCompiler) {
-      const detail = await page.evaluate(() => {
-        if (!window.MINDAR) return 'window.MINDAR is undefined';
-        return 'window.MINDAR keys: ' + Object.keys(window.MINDAR).join(', ');
-      });
-      throw new Error('window.MINDAR.IMAGE.Compiler not found. ' + detail);
-    }
-    console.log('MindAR compiler loaded successfully.');
 
-    // Run the compiler in the page context
-    const base64 = await page.evaluate(async (images) => {
+    if (apiShape.shape === 'none') {
+      throw new Error('window.MINDAR is undefined after injecting the bundle.');
+    }
+    if (apiShape.shape === 'unknown') {
+      throw new Error(
+        'Compiler not found. window.MINDAR keys: ' + apiShape.keys.join(', ')
+      );
+    }
+    console.log(`MindAR compiler loaded (API shape: ${apiShape.shape}).`);
+
+    // Run the compiler in the page context.
+    const base64 = await page.evaluate(async (images, shape) => {
       const loadImage = (dataUrl) => new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
@@ -122,19 +138,23 @@ const MINDAR_CDN = 'https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/min
         loaded.push(img);
       }
 
-      const compiler = new window.MINDAR.IMAGE.Compiler();
+      const CompilerCtor = (shape === 'v2')
+        ? window.MINDAR.IMAGE.Compiler
+        : window.MINDAR.Compiler;
+
+      const compiler = new CompilerCtor();
       await compiler.compileImageTargets(loaded, (progress) => {
         if (typeof progress === 'number') {
           console.log('compile progress ' + progress.toFixed(1) + '%');
         }
       });
-      const buffer = compiler.exportData();
+      const buffer = await compiler.exportData();
 
       let binary = '';
       const bytes = new Uint8Array(buffer);
       for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
       return btoa(binary);
-    }, images);
+    }, images, apiShape.shape);
 
     const outBytes = Buffer.from(base64, 'base64');
     fs.writeFileSync(OUT_FILE, outBytes);
