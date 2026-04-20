@@ -5,11 +5,12 @@
  * (via Puppeteer) and writes the resulting targets.mind buffer to
  * the repo root.
  *
- * We use a headless browser because MindAR's compiler relies on
- * browser-only APIs (Canvas, ImageData) and this is the pattern
- * their own examples recommend.
+ * We load MindAR from the jsDelivr CDN rather than the npm package,
+ * because the npm build is ESM (uses import statements) and can't
+ * be injected as a plain <script>. The CDN build is a bundled,
+ * browser-ready file that exposes window.MINDAR.IMAGE.Compiler.
  *
- * Inputs:  config.json targets[].imageFile  ->  targets/<name>
+ * Inputs:  config.json targets[].imageFile  ->  targets/<n>
  * Output:  ./targets.mind
  */
 
@@ -17,11 +18,11 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
 
-const ROOT       = process.cwd();
-const CONFIG     = path.join(ROOT, 'config.json');
-const TARGETS    = path.join(ROOT, 'targets');
-const OUT_FILE   = path.join(ROOT, 'targets.mind');
-const COMPILER   = path.join(ROOT, 'node_modules', 'mind-ar', 'dist', 'mindar-image.prod.js');
+const ROOT         = process.cwd();
+const CONFIG       = path.join(ROOT, 'config.json');
+const TARGETS      = path.join(ROOT, 'targets');
+const OUT_FILE     = path.join(ROOT, 'targets.mind');
+const MINDAR_CDN   = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js';
 
 (async () => {
   // ---- Read config ---------------------------------------------------------
@@ -33,12 +34,11 @@ const COMPILER   = path.join(ROOT, 'node_modules', 'mind-ar', 'dist', 'mindar-im
 
   if (targets.length === 0) {
     console.log('No targets configured. Skipping compilation.');
-    // Remove any stale .mind so scanner fails loudly instead of silently
     if (fs.existsSync(OUT_FILE)) fs.unlinkSync(OUT_FILE);
     process.exit(0);
   }
 
-  // Validate all files exist
+  // Validate all files exist and collect them as data URLs
   const images = [];
   for (const t of targets) {
     if (!t.imageFile) {
@@ -57,12 +57,6 @@ const COMPILER   = path.join(ROOT, 'node_modules', 'mind-ar', 'dist', 'mindar-im
     });
   }
 
-  if (!fs.existsSync(COMPILER)) {
-    console.error('mind-ar compiler not found at', COMPILER);
-    process.exit(1);
-  }
-  const compilerScript = fs.readFileSync(COMPILER, 'utf8');
-
   // ---- Launch headless Chromium -------------------------------------------
   const browser = await puppeteer.launch({
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
@@ -78,38 +72,39 @@ const COMPILER   = path.join(ROOT, 'node_modules', 'mind-ar', 'dist', 'mindar-im
   try {
     const page = await browser.newPage();
     page.on('console', msg => {
-      // Surface useful progress messages
       try { console.log('[browser]', msg.text()); } catch (_) {}
     });
     page.on('pageerror', err => console.error('[browser error]', err.message));
 
-    await page.setContent(
-      '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>',
-      { waitUntil: 'load' }
-    );
+    // Serve a minimal HTML page that loads MindAR from the CDN via a script tag.
+    // This is the same mechanism the frontend uses, so we know it works.
+    const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="${MINDAR_CDN}"></script>
+</head>
+<body></body>
+</html>`;
 
-    // Inject the MindAR library as a script (avoids cross-origin fetches)
-    await page.evaluate(src => {
-      const s = document.createElement('script');
-      s.textContent = src;
-      document.head.appendChild(s);
-    }, compilerScript);
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
 
-    // Verify the compiler is present
+    // Confirm the compiler is available on window
     const hasCompiler = await page.evaluate(() => {
       return !!(window.MINDAR && window.MINDAR.IMAGE && typeof window.MINDAR.IMAGE.Compiler === 'function');
     });
     if (!hasCompiler) {
-      throw new Error('window.MINDAR.IMAGE.Compiler not found after injecting mind-ar bundle.');
+      throw new Error('window.MINDAR.IMAGE.Compiler not found after loading mind-ar bundle from CDN.');
     }
+    console.log('MindAR compiler loaded successfully.');
 
-    // Run the compiler
+    // Run the compiler in the page context
     const base64 = await page.evaluate(async (images) => {
       const loadImage = (dataUrl) => new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload  = () => resolve(img);
-        img.onerror = (e) => reject(new Error('Image load failed: ' + e));
+        img.onerror = (e) => reject(new Error('Image load failed'));
         img.src = dataUrl;
       });
 
@@ -125,10 +120,9 @@ const COMPILER   = path.join(ROOT, 'node_modules', 'mind-ar', 'dist', 'mindar-im
           console.log('compile progress ' + progress.toFixed(1) + '%');
         }
       });
-      const buffer = compiler.exportData();  // Uint8Array
+      const buffer = compiler.exportData();
 
-      // Return as base64 (structured-clone a TypedArray is fine, but base64
-      // survives any transport quirks and keeps the script resilient)
+      // Encode as base64 for transport back to Node
       let binary = '';
       const bytes = new Uint8Array(buffer);
       for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
