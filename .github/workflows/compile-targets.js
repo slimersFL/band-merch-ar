@@ -5,10 +5,11 @@
  * (via Puppeteer) and writes the resulting targets.mind buffer to
  * the repo root.
  *
- * We load MindAR from the jsDelivr CDN rather than the npm package,
- * because the npm build is ESM (uses import statements) and can't
- * be injected as a plain <script>. The CDN build is a bundled,
- * browser-ready file that exposes window.MINDAR.IMAGE.Compiler.
+ * IMPORTANT: We load MindAR from the `gh` path on jsDelivr
+ * (hiukim/mind-ar-js@1.2.5), NOT the `npm` path. The GitHub-hosted
+ * bundle is a plain UMD script that registers window.MINDAR globally.
+ * The npm-hosted bundle with the same filename is an ES module and
+ * can't be loaded with a plain <script> tag.
  *
  * Inputs:  config.json targets[].imageFile  ->  targets/<n>
  * Output:  ./targets.mind
@@ -18,11 +19,11 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
 
-const ROOT         = process.cwd();
-const CONFIG       = path.join(ROOT, 'config.json');
-const TARGETS      = path.join(ROOT, 'targets');
-const OUT_FILE     = path.join(ROOT, 'targets.mind');
-const MINDAR_CDN   = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image.prod.js';
+const ROOT       = process.cwd();
+const CONFIG     = path.join(ROOT, 'config.json');
+const TARGETS    = path.join(ROOT, 'targets');
+const OUT_FILE   = path.join(ROOT, 'targets.mind');
+const MINDAR_CDN = 'https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/dist/mindar-image.prod.js';
 
 (async () => {
   // ---- Read config ---------------------------------------------------------
@@ -76,25 +77,32 @@ const MINDAR_CDN   = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-ima
     });
     page.on('pageerror', err => console.error('[browser error]', err.message));
 
-    // Serve a minimal HTML page that loads MindAR from the CDN via a script tag.
-    // This is the same mechanism the frontend uses, so we know it works.
-    const html = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <script src="${MINDAR_CDN}"></script>
-</head>
-<body></body>
-</html>`;
+    // Fetch the MindAR bundle in Node, then inject its source into the page.
+    // This avoids document.write / parser-blocking warnings and guarantees
+    // the script is fully loaded and executed before we query window.MINDAR.
+    console.log('Fetching MindAR bundle from', MINDAR_CDN);
+    const mindarJs = await fetchText(MINDAR_CDN);
+    console.log(`Fetched MindAR bundle (${mindarJs.length} bytes).`);
 
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
+    // Minimal HTML host
+    await page.setContent(
+      '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>',
+      { waitUntil: 'load' }
+    );
+
+    // Inject the bundle source directly.
+    await page.addScriptTag({ content: mindarJs });
 
     // Confirm the compiler is available on window
     const hasCompiler = await page.evaluate(() => {
       return !!(window.MINDAR && window.MINDAR.IMAGE && typeof window.MINDAR.IMAGE.Compiler === 'function');
     });
     if (!hasCompiler) {
-      throw new Error('window.MINDAR.IMAGE.Compiler not found after loading mind-ar bundle from CDN.');
+      const detail = await page.evaluate(() => {
+        if (!window.MINDAR) return 'window.MINDAR is undefined';
+        return 'window.MINDAR keys: ' + Object.keys(window.MINDAR).join(', ');
+      });
+      throw new Error('window.MINDAR.IMAGE.Compiler not found. ' + detail);
     }
     console.log('MindAR compiler loaded successfully.');
 
@@ -104,7 +112,7 @@ const MINDAR_CDN   = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-ima
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload  = () => resolve(img);
-        img.onerror = (e) => reject(new Error('Image load failed'));
+        img.onerror = () => reject(new Error('Image load failed'));
         img.src = dataUrl;
       });
 
@@ -122,7 +130,6 @@ const MINDAR_CDN   = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-ima
       });
       const buffer = compiler.exportData();
 
-      // Encode as base64 for transport back to Node
       let binary = '';
       const bytes = new Uint8Array(buffer);
       for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
@@ -140,6 +147,8 @@ const MINDAR_CDN   = 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-ima
   process.exit(1);
 });
 
+// ---- Helpers -------------------------------------------------------------
+
 function inferMime(filename) {
   const ext = filename.toLowerCase().split('.').pop();
   switch (ext) {
@@ -150,4 +159,26 @@ function inferMime(filename) {
     case 'gif':  return 'image/gif';
     default:     return 'application/octet-stream';
   }
+}
+
+function fetchText(url) {
+  return new Promise((resolve, reject) => {
+    const https = require('https');
+    const doGet = (u, redirectsLeft) => {
+      https.get(u, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          if (redirectsLeft <= 0) return reject(new Error('Too many redirects'));
+          return doGet(res.headers.location, redirectsLeft - 1);
+        }
+        if (res.statusCode !== 200) {
+          return reject(new Error(`HTTP ${res.statusCode} fetching ${u}`));
+        }
+        let data = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => resolve(data));
+      }).on('error', reject);
+    };
+    doGet(url, 5);
+  });
 }
